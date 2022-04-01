@@ -1,54 +1,33 @@
 ####Generate precipitation and temperature trends for West africa####
-###################################################
+#################################################################################
 #Load required packages
 ##################################################################################
-#require(BiodiversityR)
-#BiodiversityRGUI()
-#require (ncdf4)
-#require(ncdf)
-#require (RNetCDF)
 require(raster)
-#require (maptools)
+require (ncdf4)
+require (RNetCDF)
 require(modifiedmk)
 require (fields)
-#library(rgdal)
+library(rgdal)
 library(rasterVis)
-#library(MODIS)
-#library(MODISTools)
 library(sp)
 require (shapefiles)
-#require(greenbrown)
-#require (gdalUtils)
-#require(rgeos)
-#require(bfastSpatial)
+require(greenbrown)
+require (gdalUtils)
+require(rgeos)
 require(stringi)
 require(stringr)
-#require(lubridate)
+require(lubridate)
 require(colorRamps)
 require(RColorBrewer)
 require(grDevices)
-#require (classInt)
-#require(data.table)
+require (classInt)
 library(tidyr)
 library("tidyverse")
-#library(dplyr)
-#require(plyr)
-#require (vegan)
+library(dplyr)
 require(doParallel)
-#require(parallel)
-#require(foreach)
+require(devtools)
 #require(rtsa)
-#require(gtools)
-#require(RStoolbox)
-#require (tibble)
-#require(remote)
-#require(sinkr)
-#require(devtools)
-#devtools::install_github("e-sensing/sits")
-#require(sits)
-#library (dtwclust)
-#require(clValid)
-#require(compositions)
+require(gtools)
 require(EcoGenetics)
 source('ecotheilsen_modified.R')
 require(hydroGOF)
@@ -62,60 +41,50 @@ library(sf)
 require(reshape)
 require(FSA)
 require(PMCMR)
-#require(PMCMRplus)
-#library(Hmisc)
 library(grid)
 require(NbClust)
-#********************************************************************
+#************************************************************************************
 
 ##Set working directory##
-setwd("E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED")
+setwd("E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/Climatic-trends-West-Africa") 
 
-#load("E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/.RData")
-
-#*************************************************
+#************************************************************************************
 ####Make clusters for multi-core processing####
 #beginCluster(7, type='SOCK')
 #endCluster()
 
 ############################################################################
-####Process gridded data West Africa####
+####Process gridded data for 7 countries in West Africa####
 ################################################################################################################
-####Import countries shp####
-countries.wa.shp<-shapefile('E:/Francis_IITA/GIS_RS/GIS/Admin_political/Africa/AR-WA/AR_WA7.shp')
-#demo.mali.ghana = shapefile('E:/Francis_IITA/GIS_RS/GPS/AR-ESA/Africa/AR_Ghana_Mali_Demo_sites.shp')
-#demo.mali.ghana = shapefile('E:/Francis_IITA/GIS_RS/GPS/AR-WA/AR-Demo-Ghana-Mali.shp')
 
-#Import AEZ layer##
-#aez.wa = shapefile('E:/Francis_IITA/GIS_RS/GIS/Climatic/Agroecological Zones/AEZ_africa/Aez_clipWA6.shp')
-aezWArst = raster('E:/Francis_IITA/GIS_RS/GIS/Climatic/Agroecological Zones/AEZ_africa/aezWA6rst.tif')
-aezWArst.fun=function(x) { x[x==10] <- NA; return(x)}
-aezWArst <- calc(aezWArst, aezWArst.fun)
-aezWArst.tc = raster('aezWArstTC.tif')#AEZ resampled to TC resolution
 ###############################################################################################################################################################################################
 #Import mask layers for water, protected areas and urban areas
 ###############################################################################################################################################################################################
+
+####Import countries shp####
+countries.wa.shp<-shapefile('E:/Francis_IITA/GIS_RS/GIS/Admin_political/Africa/AR-WA/AR_WA7.shp')
+
+#Import AEZ layer##
+aezWArst = raster('E:/Francis_IITA/GIS_RS/GIS/Climatic/Agroecological Zones/AEZ_africa/aezWA6rst.tif')
+aezWArst.fun=function(x) { x[x==10] <- NA; return(x)}
+aezWArst <- calc(aezWArst, aezWArst.fun)
+#Import AEZ resampled to TC resolution
+aezWArst.tc = raster('aezWArstTC.tif')
+
 #Import water mask
-#water.mask.wa = raster('E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Water Mask/watermaskWA-clss.tif')
+#watermaskWA = raster('E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Water Mask/watermaskWA-clss.tif')
 watermaskWa = raster('watermaskWA.tif')
 watermaskWa.fun=function(x) { x[x>0.7] <- NA; return(x)}
 watermaskWa <- calc(watermaskWa, watermaskWa.fun)
 watermaskWa = projectRaster(watermaskWa,terraclimppt.annual.37yrs[[1]], method= 'ngb')
 watermaskWa = (watermaskWa *0)+1
-##Import protected areas and urban masks
-pa.wa.mask = 
-urban.wa.mask =
+
 ###############################################################################################################################################################################################
 #Process CHIRPS rainfall
 ###############################################################################################################################################################################################
 chirps.wa.brick19812016<-stack('E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Climate/chirps.wa.19812016.tif')
 chirps.names.37 = seq.Date(as.Date("1981-01-01"), as.Date("2017-12-31"), by='year')
-#names(chirps.wa.19812016)<-chirps.names
-#chirps.wa.brick19812016.5yrs<-chirps.wa.brick19812016[[385:444]]
-#Aggregate monthly to annual automatically
-#Annual for last 5 years time series
-chirps.wa.brick19812016.5yrs.sum.indices<-rep(1:5,each=12)
-chirps.wa.brick19812016.5yrs.annual<-stackApply(chirps.wa.brick19812016.5yrs, chirps.wa.brick19812016.5yrs.sum.indices, fun = sum)
+names(chirps.wa.19812016)<-chirps.names.37
 
 #Annual for 37 years time series
 chirps.wa.brick19812016.annual.sum.indices<-rep(1:37,each=12)
@@ -129,7 +98,8 @@ chirps.wa.ltm= mask(chirps.wa.ltm, countries.wa.shp)
 writeRaster(chirps.wa.ltm, 'E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Climate/chirpswaltm37.tif' )
 
 #***********************************************************************************************************************************************#
-####Barplot of annual PPT per AEZ####
+##Barplot of annual PPT per AEZ##
+#***********************************************************************************************************************************************#
 chirps.wa.brick19812016.annual.37.tc = projectRaster(chirps.wa.brick19812016.annual.37, aezWArst.tc)
 names(chirps.wa.brick19812016.annual.37.tc)= as.character(seq(1981, 2017, by=1))
 chirps.wa.brick19812016.annual.37.tc.zonal =zonal(chirps.wa.brick19812016.annual.37.tc, aezWArst.tc, fun='mean', digits=0, na.rm=TRUE, filename="E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/zonalchirpsannual.csv")
@@ -142,8 +112,21 @@ chirpswa.annual37.longDF.avg.df=as.data.frame(chirpswa.annual37.longDF.avg)
 chirpswa.annual37.longDF.avg.df <- within (chirpswa.annual37.longDF.avg.df, {
                                   zone <- as.factor(zone)
                                   })
+
+#Bar
+chirps.bp = ggplot(chirps.Tmean , aes(x = Year, y = Rainfall, fill= zone))+
+  geom_bar(stat = "identity", position = position_dodge(width =0.9))+
+  scale_x_discrete(labels=as.character(seq(1981, 2017, by=1)))+
+  theme(axis.text.x= element_text(face = "bold", color = "black",size = 10, angle=90, hjust = 0, vjust = 0.5)) +
+  theme(axis.text.y= element_text(face = "bold", color = "black",size = 10, angle=0, hjust = 0, vjust = 0.5)) +
+  theme(axis.title.y= element_text(face = "bold", color = "black",size = 12))+
+  theme(axis.title.x= element_text(face = "bold", color = "black",size = 12))+
+  theme(legend.title = element_text(face = "bold", size = 12),legend.text = element_text(size = 12))+
+  scale_y_continuous(breaks = seq(0, 1800, by=200))
+  chirps.bp
+
                                     
-####Process and plot line grapgh for mean temperature (Tmax+Tmin/2)
+####Process and plot line graph for mean temperature (Tmax+Tmin/2)
 
 TcTmean = overlay(terraclimTmax.bk, terraclimTmin.bk, fun=function(x,y){return((x+y)/2)})
 TcTmean.37<-stackApply(TcTmean, chirps.wa.brick19812016.annual.sum.indices, fun = mean)
@@ -160,27 +143,13 @@ TmeanlongDF.avg.df = within (TmeanlongDF.avg.df, {
   zone <- as.factor(zone)
 })
 
- ####Plot bar with bar + line####
+ ####Plot bar with bar + line for Tmean####
 
 chirps.Tmean = cbind(chirpswa.annual37.longDF.avg.df,TmeanlongDF.avg.df )
 chirps.Tmean = chirps.Tmean[,-c(4,5)]
 
-#Bar
-chirps.bp = ggplot(chirps.Tmean , aes(x = Year, y = Rainfall, fill= zone))+
-  geom_bar(stat = "identity", position = position_dodge(width =0.9))+
-  scale_x_discrete(labels=as.character(seq(1981, 2017, by=1)))+
-  theme(axis.text.x= element_text(face = "bold", color = "black",size = 10, angle=90, hjust = 0, vjust = 0.5)) +
-  theme(axis.text.y= element_text(face = "bold", color = "black",size = 10, angle=0, hjust = 0, vjust = 0.5)) +
-  theme(axis.title.y= element_text(face = "bold", color = "black",size = 12))+
-  theme(axis.title.x= element_text(face = "bold", color = "black",size = 12))+
-  theme(legend.title = element_text(face = "bold", size = 12),legend.text = element_text(size = 12))+
-  scale_y_continuous(breaks = seq(0, 1800, by=200))
-#ggsci::scale_fill_jco()
-#ggsci::scale_fill_lancet()
-#chirps.bp
 
-
-#Line with groups
+#Line with groups for Tmean
 ggline = ggplot(chirps.Tmean, aes(x=Year, y=Tmean, group = zone, colour = zone)) +
   geom_line() +
   geom_point( size=4, shape=21)+
@@ -195,7 +164,7 @@ ggline = ggplot(chirps.Tmean, aes(x=Year, y=Tmean, group = zone, colour = zone))
 ggarrange(chirps.bp, ggline, labels = c("a", "b"), ncol = 1, nrow = 2)
 
 #***********************************************************************************************************************************************#
-#Subset monthly time series
+#Subset monthly PPT time series
 chirps.wa.jan<-subset(chirps.wa.brick19812016,seq(1, 444,12))
 chirps.wa.feb<-subset(chirps.wa.brick19812016,seq(2, 444,12))
 chirps.wa.mar<-subset(chirps.wa.brick19812016,seq(3, 444,12))
@@ -208,7 +177,8 @@ chirps.wa.sep<-subset(chirps.wa.brick19812016,seq(9, 444,12))
 chirps.wa.oct<-subset(chirps.wa.brick19812016,seq(10,444,12))
 chirps.wa.nov<-subset(chirps.wa.brick19812016,seq(11,444,12))
 chirps.wa.dec<-subset(chirps.wa.brick19812016,seq(12,444,12))
-#Aggregate to monthly means
+
+#Aggregate PPT to monthly long term mean
 
 chirps.wa.monthly.mean.jan<-mean(subset(chirps.wa.brick19812016,(seq(1, 444,12))))
 chirps.wa.monthly.mean.feb<-mean(subset(chirps.wa.brick19812016,(seq(2, 444,12))))
@@ -233,7 +203,7 @@ names(chirps.monthlyMean)=c('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep
 writeRaster(chirps.monthlyMean, format='GTiff', 'chirps.monthlyMean.tif')
 chirps.monthlyMean = brick('chirps.monthlyMean.tif')
 
-####barplot for monthly mean rainfal climatology per AEZ in WA####
+####barplot for monthly mean rainfall climatology per AEZ in WA####
 
 chirps.monthlyMean.tc = projectRaster(chirps.monthlyMean, aezWArst.tc)
 names(chirps.monthlyMean.tc)=c('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
@@ -242,9 +212,10 @@ chirps.MonMean.zonal =as.data.frame(zonal(chirps.monthlyMean.tc, aezWArst.tc, fu
 chirps.MonMean.zonal.longDF =chirps.MonMean.zonal %>% gather(Month, Rainfall, Jan:Dec, na.rm = T)
 chirps.MonMean.zonal.longDF <- within (chirps.MonMean.zonal.longDF,{zone <- as.factor(zone)})
 chirps.MonMean.zonal.longDF$Month <- factor(chirps.MonMean.zonal.longDF$Month,levels = c('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'))
-####Plot bar with barplot for monthly rainfal####
 
-chirps.bp = ggplot(chirps.MonMean.zonal.longDF , aes(x = Month, y = Rainfall, fill=zone))+
+####Plot barplot for monthly mean rainfall
+
+chirps.monLTM.bp = ggplot(chirps.MonMean.zonal.longDF , aes(x = Month, y = Rainfall, fill=zone))+
   geom_bar(stat = "identity", position = position_dodge(width =1))+
   #scale_x_discrete(labels=as.character(seq(1981, 2017, by=1)))+
   theme(axis.text.x= element_text(face = "bold", color = "black",size = 10, angle=0, hjust = 0.5, vjust = 0.5)) +
@@ -254,7 +225,7 @@ chirps.bp = ggplot(chirps.MonMean.zonal.longDF , aes(x = Month, y = Rainfall, fi
   theme(legend.title = element_text(face = "bold", size = 12),legend.text = element_text(size = 12))+
   labs(y='Rainfall (mm)')+
   scale_y_continuous(breaks = seq(0, 270, by=15))
-chirps.bp
+chirps.monLTM.bp
 
 #*********************************************************************************************************************************************#
 ####Line plot for Mean Temperature climatology in WA####
@@ -274,36 +245,20 @@ TmeanlongDF.avg.df = within (TmeanlongDF.avg.df, {
 })
 
 #*********************************************************************************************************************************************#
-#Aggregate to monthly cv
+#Calculate to monthly cv
 ##*******************************************************************************************************************************************
-chirps.wa.monthly.cv.jan<-cv(subset(chirps.wa.brick19812016.5yrs,seq(1, 444,12)))
-chirps.wa.monthly.cv.feb<-cv(subset(chirps.wa.brick19812016.5yrs,seq(2, 444,12)))
-chirps.wa.monthly.cv.mar<-cv(subset(chirps.wa.brick19812016.5yrs,seq(3, 444,12)))
-chirps.wa.monthly.cv.apr<-cv(subset(chirps.wa.brick19812016.5yrs,seq(4, 444,12)))
-chirps.wa.monthly.cv.may<-cv(subset(chirps.wa.brick19812016.5yrs,seq(5, 444,12)))
-chirps.wa.monthly.cv.jun<-cv(subset(chirps.wa.brick19812016.5yrs,seq(6, 444,12)))
-chirps.wa.monthly.cv.jul<-cv(subset(chirps.wa.brick19812016.5yrs,seq(7, 444,12)))
-chirps.wa.monthly.cv.aug<-cv(subset(chirps.wa.brick19812016.5yrs,seq(8, 444,12)))
-chirps.wa.monthly.cv.sep<-cv(subset(chirps.wa.brick19812016.5yrs,seq(9, 444,12)))
-chirps.wa.monthly.cv.oct<-cv(subset(chirps.wa.brick19812016.5yrs,seq(10,444,12)))
-chirps.wa.monthly.cv.nov<-cv(subset(chirps.wa.brick19812016.5yrs,seq(11,444,12)))
-chirps.wa.monthly.cv.dec<-cv(subset(chirps.wa.brick19812016.5yrs,seq(12,444,12)))
-
-#Calculate annual mean over entire 37 year time series
-
-chirps.wa.ltm.5yrs <- calc(chirps.wa.brick19812016.5yrs.annual, mean)
-#chirps.wa.ltm.5yrs <-mask(chirps.wa.ltm,countries.wa.shp)
-chirps.cv.std.5yrs <- calc(chirps.wa.brick19812016.5yrs.annual, cv)
-
-##############################################################################
-#Process Process Topographical layers - SRTM DEM + slope
-##############################################################################
-####
-#demsre3a.wa<-raster('E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Topography/DEMSRE3aWA_1km.tif')
-#demsre3a.wa[demsre3a.wa < 0] <- NA
-#names(demsre3a.wa)= 'DEM'
-#slope.wa = raster('E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Topography/SLPSRTE3aWA_1km.tif')
-terraclimDEM.wa = raster('E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED/input/Topography/terraclimDEMwa.tif')
+chirps.wa.monthly.cv.jan<-cv(subset(chirps.wa.brick19812016,seq(1, 444,12)))
+chirps.wa.monthly.cv.feb<-cv(subset(chirps.wa.brick19812016,seq(2, 444,12)))
+chirps.wa.monthly.cv.mar<-cv(subset(chirps.wa.brick19812016,seq(3, 444,12)))
+chirps.wa.monthly.cv.apr<-cv(subset(chirps.wa.brick19812016,seq(4, 444,12)))
+chirps.wa.monthly.cv.may<-cv(subset(chirps.wa.brick19812016,seq(5, 444,12)))
+chirps.wa.monthly.cv.jun<-cv(subset(chirps.wa.brick19812016,seq(6, 444,12)))
+chirps.wa.monthly.cv.jul<-cv(subset(chirps.wa.brick19812016,seq(7, 444,12)))
+chirps.wa.monthly.cv.aug<-cv(subset(chirps.wa.brick19812016,seq(8, 444,12)))
+chirps.wa.monthly.cv.sep<-cv(subset(chirps.wa.brick19812016,seq(9, 444,12)))
+chirps.wa.monthly.cv.oct<-cv(subset(chirps.wa.brick19812016,seq(10,444,12)))
+chirps.wa.monthly.cv.nov<-cv(subset(chirps.wa.brick19812016,seq(11,444,12)))
+chirps.wa.monthly.cv.dec<-cv(subset(chirps.wa.brick19812016,seq(12,444,12)))
 
 ##############################################################################
 #Process Terraclimate Tmax data
@@ -315,9 +270,8 @@ inputdir.terraclimTmax.monthly <- ('H:/TerraClimate/Tmax')
 
 ## list rasters in input directory
 files.terraclimTmax.monthly.nc <- list.files(inputdir.terraclimTmax.monthly, pattern='*.nc', full.names = T, recursive = T)
-#files.terraclimTmax.monthly.nc.5yrs=files.terraclimTmax.monthly.nc[33:37]
-#Import raster names
-## Loop to import rasters, crop and stack the img files
+
+## Loop to import rasters, crop and stack the image files
 
 for (i in 1:length(files.terraclimTmax.monthly.nc)){
   terraclimTmax.monthly.nc <-brick(files.terraclimTmax.monthly.nc[i], varname="tmax")
@@ -334,13 +288,8 @@ terraclimTmax.bk<-brick(terraclimTmax)
 writeRaster(terraclimTmax.bk, 'terraclimTmaxbk', format = 'GTiff', bylayer=F, overwrite =TRUE)
 terraclimTmax.bk<-brick('terraclimTmaxbk.tif')
 
-#tcTmaxwa.stack=brick('terraclimTmax.wa.tif')
-#names(terraclimTmax.wa.monthly.mean.stack)=c('TmaxJan','TmaxFeb','TmaxMar','TmaxApr','TmaxMay','TmaxJun','TmaxJul','TmaxAug','TmaxSep','TmaxOct','TmaxNov','TmaxDec')
-levelplot(terraclimTmax[[1]])+
-  layer(sp.polygons(countries.wa.shp, border='red'))
-
 ###***********************************************************************
-#Aggregate monthly to annual automatically
+#Aggregate monthly Terraclimate Tmax to annual
 
 #Separate monthly 
 
@@ -389,7 +338,7 @@ rm(terraclimTmax.wa.monthly.mean.jan,terraclimTmax.wa.monthly.mean.feb, terracli
          terraclimTmax.wa.monthly.mean.oct,terraclimTmax.wa.monthly.mean.nov, terraclimTmax.wa.monthly.mean.dec)
 
 
-#Aggregate to monthly cv
+#Calculate to monthly cv for TMax
 
 terraclimTmax.cv.jan<-sd(subset(terraclimTmax,(seq(1, 444,12))))
 terraclimTmax.cv.feb<-cv(subset(terraclimTmax,(seq(2, 444,12))))
@@ -415,8 +364,7 @@ rm(terraclimTmax.cv.jan,terraclimTmax.cv.feb,terraclimTmax.cv.mar,terraclimTmax.
           terraclimTmax.cv.may,terraclimTmax.cv.jun,terraclimTmax.cv.jul,terraclimTmax.cv.aug,
           terraclimTmax.cv.sep,terraclimTmax.cv.oct,terraclimTmax.cv.nov,terraclimTmax.cv.dec)
 rm(terraclimTmax.wa.monthly.cv.stack)
-#????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
 ##############################################################################
 #Process Terraclimate Tmin data
 ##############################################################################
@@ -480,7 +428,8 @@ names(terraclimTmin.wa.monthly.mean.stack)=c('TminJan','TminFeb','TminMar','Tmin
 rm(terraclimTmin.wa.monthly.mean.jan,terraclimTmin.wa.monthly.mean.feb,terraclimTmin.wa.monthly.mean.mar, terraclimTmin.wa.monthly.mean.apr,terraclimTmin.wa.monthly.mean.may,terraclimTmin.wa.monthly.mean.jun,
    terraclimTmin.wa.monthly.mean.jul,terraclimTmin.wa.monthly.mean.aug,terraclimTmin.wa.monthly.mean.sep,terraclimTmin.wa.monthly.mean.oct,terraclimTmin.wa.monthly.mean.nov, terraclimTmin.wa.monthly.mean.dec)
 #rm(terraclimTmin.wa.monthly.mean.stack)
-#Aggregate to monthly cv for Tmin
+
+#Calculate monthly cv for Tmin
 
 terraclimTmin.cv.jan<-cv(subset(terraclimTmin,(seq(1, 444,12))))
 terraclimTmin.cv.feb<-cv(subset(terraclimTmin,(seq(2, 444,12))))
@@ -529,9 +478,6 @@ tcTminwa.dec<-subset(terraclimTmin.bk,(seq(12,444,12)))
 #names(terraclimTmin.wa.monthly.mean.stack)=c('TminJan','TminFeb','TminMar','TminApr','TminMay','TminJun','TminJul','TminAug','TminSep','TminOct','TminNov','TminDec')
 
 
-#????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-#????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 ##############################################################################
 #Process Terraclimate PPT data
 ##############################################################################
@@ -629,27 +575,8 @@ terraclimppt.cv.dec<-cv(subset(terraclimppt,(seq(12,444,12))))
 terraclimppt.wa.monthly.cv.stack=stack(terraclimppt.cv.jan,terraclimppt.cv.feb,terraclimppt.cv.mar, terraclimppt.cv.apr,terraclimppt.cv.may,terraclimppt.cv.jun,
                                         terraclimppt.cv.jul,terraclimppt.cv.aug,terraclimppt.cv.sep,terraclimppt.cv.oct,terraclimppt.cv.nov, terraclimppt.cv.dec)
 names(terraclimppt.wa.monthly.cv.stack)=c("pptJanCV","pptFebCV","pptMarCV","pptAprCV","pptMayCV","pptJunCV","pptJulCV","pptAugCV","pptSepCV","pptOctCV","pptNovCV","pptDecCV" )
-#????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-#stack climatic layers [PPT, Tmin, Tmin]
 
-climate.wa=stack(terraclimTmin.wa.monthly.mean.stack, terraclimTmin.wa.monthly.mean.stack,terraclimppt.wa.monthly.mean.stack, terraclimppt.annual.5yrs)
-writeRaster(climate.wa, 'climate.wa.tif', format='GTiff', overwrite=T)
-rm(climate.wa)
-climate.wa=stack('climate.wa.tif')
-names(climate.wa)=c("TmaxJan", "TmaxFeb","TmaxMar", "TmaxApr", "TmaxMay", "TmaxJun", "TmaxJul", "TmaxAug","TmaxSep" ,
-                    "TmaxOct", "TmaxNov","TmaxDec", "TminJan", "TminFeb", "TminMar", "TminApr", "TminMay","TminJun" ,
-                    "TminJul", "TminAug","TminSep", "TminOct", "TminNov", "TminDec", "pptJan" , "pptFeb" ,"pptMar"  ,
-                    "pptApr" , "pptMay" ,"pptJun" , "pptJul" , "pptAug" , "pptSep" , "pptOct" , "pptNov" ,"pptDec")
-
-#stack climate raw 444 layers[Tmax,Tmin,ppt, DEM, AET]
-
-climate.wa.444=stack(terraclimTmin, terraclimTmax,terraclimppt, terraclimDEM.wa)
-writeRaster(climate.wa.444, 'climate.wa.444.tif', format='GTiff', overwrite=T)
-rm(climate.wa.444)
-climate.wa.444=stack('climate.wa.444.tif')
-#climate.wa.444=stack('climate.wa.tif')
-
-#******************************************************************************************************
+#*******************************************************************************************************************************************************************************
 ##Create RasterVis Themes (palletes)
 #******************************************************************************************************
 # Set color palette
