@@ -5,24 +5,19 @@
 ##################################################################################
 ###Load required packages
 ##*************************************************
-#require(BiodiversityR)
-#BiodiversityRGUI()
-#require (ncdf4)
+require (ncdf4)
 #require (RNetCDF)
 require(raster)
 #require (maptools)
 require(modifiedmk)
-#require (fields)
-#library(rgdal)
 library(rasterVis)
 library(sp)
 require(stringi)
-#require(lubridate)
+require(lubridate)
 require(colorRamps)
 require(RColorBrewer)
 require(grDevices)
-#require (classInt)
-#require(data.table)
+require (classInt)
 library(tidyr)
 #library(dplyr)
 #require(plyr)
@@ -31,10 +26,7 @@ source('ecotheilsen_modified.R')
 require(hydroGOF)
 ####********************************************************************
 
-##Set working directory##
-setwd("E:/Francis_IITA/GIS_RS/GIS/Analysis/WA_TED")
-
-#Load monthly time series of Tmax 
+#Load monthly time series of TC Tmax 
 terraclimTmax.bk<-brick('terraclimTmaxbk.tif')
 
 #Separate time series for each month
@@ -417,14 +409,13 @@ TCTmaxmonthlyslopes =stack('TCTmaxmonthlyslopes.tif')
 names(TCTmaxmonthlyslopes)=c('April','May','June','July','August','September','October','November','December','January','February','March')
 TCTmaxmonthlyslopes.trim = trim(TCTmaxmonthlyslopes, padding=0, values=NA)
 
-##define class intervals for plotting
+##define customized class intervals for plotting
 myat.monthly.sigtrend.Tmax =seq(min(minValue(TCTmaxmonthlyslope.sig)),max(maxValue(TCTmaxmonthlyslope.sig)),length.out=12)
 myat.monthly.sigtrend.Tmax = round (myat.monthly.sigtrend.Tmax, digits = 2)
 #myat.monthly.sigtrend.Tmax= c(-0.047,-0.035,-0.025,-0.015,-0.01,-0.005,0,0.005,0.015,0.025,0.035,0.045,0.055,0.067)
 myat.monthly.sigtrend.Tmax= c(-0.046,-0.035,-0.025,-0.015,-0.005,-0.0025,0, 0.005, 0.015,0.026,0.036,0.046,0.056,0.067)
 myat.monthly.sigtrend.Tmax.lab= c(-0.046,-0.035,-0.025,-0.015,-0.005,0, 0.005, 0.015,0.026,0.036,0.046,0.056,0.067)
 #myat.monthly.sigtrend.Tmax.lab= c(-0.046,-0.035,-0.025,-0.015,0,0.015,0.026,0.036,0.046,0.056,0.067)
-
 #myat.monthly.sigtrend.Tmax= c(-0.045,-0.035,-0.025,-0.015,0,0.015,0.025,0.035,0.045,0.055,0.065, 0.07)
 
 ####################################################################################
