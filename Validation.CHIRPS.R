@@ -1,5 +1,5 @@
 ##########################################################################################
-####Validate TerraClimate (Tmin/Tmax/PPT) and CHIRPS-v2 Grids with gauge data####
+####Validate CHIRPS-v2 Gridded rainfall with with gauge data####
 ##########################################################################################
 #Make date time series
 date.chirps.mon <- seq.Date(as.Date("1981-01-01"), as.Date("2017-12-01"), by='month')
