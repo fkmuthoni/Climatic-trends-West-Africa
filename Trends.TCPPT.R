@@ -1,4 +1,6 @@
-##Fit modified MK Hamed & Rao 1998 method for time series
+##################################################################################################################
+##Calculate Rainfall trends from TerraClimate data
+##################################################################################################################
 
 ##Activate parallel processing
 
@@ -10,46 +12,22 @@ clr <- makeCluster(no_cores, type="PSOCK")
 beginCluster(6, type='SOCK')
 endCluster()
 
-
-#Clip a small ext for example consulting stackflow
-terraclimppt.annual.37yrs.ext.noNA = drawExtent()
-terraclimppt.noNA = crop(terraclimppt.annual.37yrs, terraclimppt.annual.37yrs.ext.noNA)
-writeRaster(terraclimppt.noNA, 'terraclimpptnoNA', format='GTiff', bylayer=F,overwrite=TRUE)
-terraclimppt.annual.37yrs.ext.withNA = drawExtent()
-terraclimppt.withNA = crop(terraclimppt.annual.37yrs, terraclimppt.annual.37yrs.ext.withNA)
-writeRaster(terraclimppt.withNA, 'terraclimpptwithNA', format='GTiff', bylayer=F, overwrite=TRUE)
-
-terraclimppt.annual.37yrs.ext = terraclimppt.annual.37yrs.ext == 1
-terraclimppt.annual.37yrs.maskext = terraclimppt.annual.37yrs[[1]]==0
-NAvalue(terraclimppt.annual.37yrs.maskext)=0
-
-terraclimppt.annual.37yrs = mask(terraclimppt.annual.37yrs, terraclimppt.annual.37yrs.maskext, maskvalue=1)
-terraclimppt.annual.37yrs[which(!is.na(getValues(terraclimppt.annual.37yrs[[1]])))] <- terraclimppt.annual.37yrs 
-
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
-## use mmkh3lag with EcoGenetics package
+##Derive annual trends using modified MK statistic 
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
 #####Magnitude & significance of annual trends
 
 TerraclimWa.pptannual.mmkh3lag = eco.theilsen2(terraclimppt.annual.37yrs,  method = "mk_corrected", my_modified = modifiedmk::mmkh3lag)
 
+#Save the Sen's slope and pvalue rasters generated from eco.theilsen2 function
 TCwaannualmmkh3lagslope <- raster("Results/Climatic Trends/Annual/TCwaAnnual.mmkh3lag.slope.tif")
 TCwaAnnualmmkh3lagpvalue <- raster("Results/Climatic Trends/Annual/TCwaAnnual.mmkh3lag.pvalue.tif")
-
-par(mfrow = c(1, 2))
-plot(TCwaannualmmkh3lagslope, main = "slope")
-plot(countries.wa.shp, add=T)
-plot(demo.mali.ghana, add=T)
-
-plot(TCwaAnnualmmkh3lagpvalue, main = "p-value")
-plot(countries.wa.shp, add=T)
-plot(demo.mali.ghana, add=T)
 
 #Crop only pvalue below 0.1
 TCpmmkh3lag.p.fun <- function(x) { x[x>0.1] <- NA; return(x)}
 TCwaAnnualmmkh3lagpvalue.p = calc(TCwaAnnualmmkh3lagpvalue, TCpmmkh3lag.p.fun)
 
-#Clip only significant slope
+#Crop only significant slope
 TCwaannualmmkh3lagslope.sig = mask(TCwaannualmmkh3lagslope, TCwaAnnualmmkh3lagpvalue.p)
 writeRaster(TCwaannualmmkh3lagslope.sig, 'TCwaannualmmkh3lagslopesig.tif',format='GTiff')
 rm(TCwaannualmmkh3lagslope.sig)
@@ -62,7 +40,7 @@ names(TCwaannualmmkh3lagslope.all.sig) = c('a','b')
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ##Plot overall trends and only significant trend
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-########Colol pallete
+########Color pallete
 
 # Set color palette
 zeroCol <-"#B3B3B3" #
@@ -100,7 +78,7 @@ terrain<-rev(terrain.colors(12))
 #My at
 myat.annual.sigtrend =seq(min(minValue(TCwaannualmmkh3lagslope.all.sig)),max(maxValue(TCwaannualmmkh3lagslope.all.sig)),length.out=10)
 myat.annual.sigtrend = round (myat.annual.sigtrend, digits = 0)
-myat.annual.sigtrend= c(-8,-7,-6,-5,-4,-3, -2, -1, 0,  1, 2,3, 4, 5, 6, 7, 8)
+myat.annual.sigtrend= c(-8,-7,-6,-5,-4,-3, -2, -1, 0,  1, 2,3, 4, 5, 6, 7, 8)#customized breaks
 
 levelplot(TCwaannualmmkh3lagslope.all.sig,at=myat.annual.sigtrend, par.settings=myTheme.ltm.zero , colorkey=list( at=myat.annual.sigtrend,labels=list(cex=1,at=myat.annual.sigtrend), height=0.9), margin = FALSE,
             xlab='', ylab='')+
@@ -116,8 +94,7 @@ tcpptwa.apr.maskras <- calc(tcpptwa.apr, fun = sum, na.rm = TRUE) # all NA have 
 NAvalue(tcpptwa.apr.maskras)=0
 tcpptwa.apr = mask(tcpptwa.apr, tcpptwa.apr.maskras)
 tcpptwa.apr[tcpptwa.apr==0] = NA
-
-#tcpptwa.apr=brick(tcpptwa.apr)
+tcpptwa.apr=brick(tcpptwa.apr)
 
 TCWapptmmkh3lag.Apr = eco.theilsen2(tcpptwa.apr,  method = "mk_corrected", my_modified = modifiedmk::mmkh3lag)
 
@@ -137,16 +114,18 @@ TCwammkh3lagslopeApr.sig =raster('TCwammkh3lagslopeAprsig.tif')
 #Stack overall trend and significant Apr trends for rainfall
 TCwammkh3lagslopeApr.all.sig = stack(TCWapptmmkh3lagApr.slope,TCwammkh3lagslopeApr.sig)
 names(TCwammkh3lagslopeApr.all.sig) = c('a','b')
+
 #My at
 #myat.Apr.sigtrend =seq(min(minValue(TCwammkh3lagslopeApr.all.sig)),max(maxValue(TCwammkh3lagslopeApr.all.sig)),length.out=10)
 #myat.Apr.sigtrend = round (myat.Apr.sigtrend, digits = 1)
-myat.Apr.sigtrend = seq(-2.5, 0.5,1)
 #myat.Apr.sigtrend = c(-2.5, -2, -1.5, -1, -0.5, 0, 0.5)
+myat.Apr.sigtrend = seq(-2.5, 0.5,1)
 
 
 levelplot(TCwammkh3lagslopeApr.all.sig,at=myat.Apr.sigtrend, par.settings=myTheme.ltm.zero , colorkey=list( at=myat.Apr.sigtrend,labels=list(cex=1,at=myat.Apr.sigtrend), height=0.9), margin = FALSE,
           xlab='', ylab='')+
   layer(sp.polygons(countries.wa.shp, border='black'))
+
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
 ###May
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
@@ -176,8 +155,6 @@ TCwammkh3lagslopemay.sig =raster('TCwammkh3lagslopemaysig.tif')
 TCwammkh3lagslopemay.all.sig = stack(TCWapptmmkh3lagmay.slope,TCwammkh3lagslopemay.sig)
 names(TCwammkh3lagslopemay.all.sig) = c('a','b')
 
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
 ###June
 ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
@@ -497,7 +474,6 @@ myat.monthly.sigtrend= c(-5,-4,-3, -2, -1, -0.5,-0.25,0, 0.25, 0.5, 1, 2,3)
 levelplot(TCpptmonthlyslopes,at=myat.monthly.sigtrend, par.settings=myTheme.ltm.zero , colorkey=list( at=myat.monthly.sigtrend,labels=list(cex=1,at=myat.monthly.sigtrend), height=0.9), margin = FALSE,xlab='', ylab='')+
   layer(sp.polygons(countries.wa.shp, border='black'))#+
 #layer(sp.points(demo.mali.ghana, col='purple'))
-
 
 #Stack and plot monthly significant slopes
 TCpptmonthlyslope.sig = stack(TCwammkh3lagslopeApr.sig,TCwammkh3lagslopemay.sig,TCwammkh3lagslopejun.sig,TCwammkh3lagslopejul.sig,TCwammkh3lagslopeaug.sig,TCwammkh3lagslopesep.sig,TCwammkh3lagslopeoct.sig,TCwammkh3lagslopedec.sig,TCwammkh3lagslopejan.sig)
